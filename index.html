@@ -1,0 +1,786 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Run Route Poster</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap">
+<style>
+:root {
+  --desk: #eceeef; --rail: #ffffff; --ink: #16181a; --muted: #6b7075;
+  --line: #d5d8db; --red: #e10600; --field: #f6f7f8;
+  --sans: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --desk: #121416; --rail: #1b1e21; --ink: #eef0f2; --muted: #9aa0a6; --line: #2f3439; --red: #ff3b30; --field: #23272b; color-scheme: dark; }
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--desk); color: var(--ink); font-family: var(--sans); padding: 24px max(16px, 2vw); }
+.wrap { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 28px; max-width: 1180px; margin: 0 auto; align-items: start; }
+.stage { display: flex; justify-content: center; min-width: 0; }
+@media (min-width: 861px) {
+  .stage { position: sticky; top: 24px; height: calc(100vh - 48px); align-items: center; }
+}
+canvas { display: block; width: 100%; max-width: min(640px, calc((100vh - 48px) * 0.8)); aspect-ratio: 4 / 5; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.08), 0 18px 40px rgba(0,0,0,.12); }
+.rail { background: var(--rail); border: 1px solid var(--line); padding: 22px 20px; display: flex; flex-direction: column; gap: 22px; min-width: 0; position: sticky; top: 24px; }
+.rail h1 { font-size: 15px; font-weight: 700; margin: 0; }
+.rail h1 span { display: block; font-family: var(--mono); font-size: 11px; font-weight: 400; color: var(--muted); margin-top: 4px; letter-spacing: .06em; text-transform: uppercase; }
+.group { display: flex; flex-direction: column; gap: 10px; }
+.label { font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field label { font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; }
+input[type="text"], input[type="number"] { width: 100%; font: inherit; font-size: 14px; color: var(--ink); background: var(--field); border: 1px solid var(--line); border-radius: 4px; padding: 9px 10px; }
+input[type="range"] { width: 100%; accent-color: var(--red); }
+select { width: 100%; font: inherit; font-size: 14px; color: var(--ink); background: var(--field); border: 1px solid var(--line); border-radius: 4px; padding: 8px 10px; }
+button:disabled { opacity: .5; cursor: wait; }
+input:focus-visible, button:focus-visible, .drop:focus-visible { outline: 2px solid var(--red); outline-offset: 1px; }
+.drop { border: 1px dashed var(--line); border-radius: 4px; padding: 18px 12px; text-align: center; font-size: 13px; color: var(--muted); cursor: pointer; background: var(--field); }
+.drop.over { border-color: var(--red); color: var(--ink); }
+.drop strong { color: var(--ink); font-weight: 500; }
+.file-input { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; pointer-events: none; }
+.group { position: relative; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; }
+button { font: inherit; font-size: 13px; padding: 8px 12px; border-radius: 4px; cursor: pointer; border: 1px solid var(--line); background: var(--rail); color: var(--ink); }
+button.primary { background: var(--ink); color: var(--rail); border-color: var(--ink); }
+.check { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.stat { border-top: 1px solid var(--line); padding-top: 6px; }
+.stat b { display: block; font-family: var(--mono); font-weight: 400; font-size: 15px; font-variant-numeric: tabular-nums; }
+.stat small { font-size: 11px; color: var(--muted); }
+.status { font-family: var(--mono); font-size: 11px; color: var(--muted); min-height: 1em; line-height: 1.5; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.sub { display: flex; flex-direction: column; gap: 10px; padding-left: 12px; border-left: 2px solid var(--line); }
+.seg { display: grid; grid-template-columns: 1fr 1fr; }
+.seg button { border-radius: 0; }
+.seg button:first-child { border-radius: 4px 0 0 4px; }
+.seg button:last-child { border-radius: 0 4px 4px 0; border-left: 0; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--rail); border-color: var(--ink); }
+#combo { aspect-ratio: auto; height: auto; }
+@media (max-width: 860px) { .wrap { grid-template-columns: minmax(0, 1fr); } .rail { position: static; } }
+@media (max-width: 860px), (pointer: coarse) {
+  body { padding: calc(12px + env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px)) calc(28px + env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px)); }
+  .wrap { gap: 16px; }
+  .rail { padding: 18px 16px; }
+  input[type="text"], input[type="number"], select { font-size: 16px; min-height: 42px; }
+  button { min-height: 42px; font-size: 14px; }
+  .check { min-height: 32px; }
+  .check input { width: 18px; height: 18px; }
+  input[type="range"] { height: 28px; }
+}
+@media (pointer: coarse) { .desk-only { display: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="stage">
+    <canvas id="poster" width="2000" height="2500" aria-label="러닝 포스터 미리보기"></canvas>
+    <canvas id="combo" hidden aria-label="포스터와 배번호 배치 미리보기"></canvas>
+  </div>
+
+  <aside class="rail">
+    <h1>러닝 포스터 <span>GPX → 4:5 poster</span></h1>
+
+    <div class="group">
+      <div class="label">GPX</div>
+      <label class="drop" id="drop" for="file" tabindex="0"><strong>GPX 파일 선택</strong><span class="desk-only"> 또는 여기로 끌어놓기</span></label>
+      <input type="file" id="file" class="file-input" accept=".gpx,application/gpx+xml,text/xml,application/xml,application/octet-stream">
+      <div class="status" id="status"></div>
+    </div>
+
+    <div class="group">
+      <div class="label">문구</div>
+      <div class="field"><label for="t1">1줄 · 타이틀</label><input type="text" id="t1" value="2026 춘천마라톤"></div>
+      <div class="field"><label for="t2">2줄 · 부제목</label><input type="text" id="t2" value="가을의 전설, 의암호를 달리다"></div>
+      <div class="field"><label for="t3">3줄 · 기록</label><input type="text" id="t3" value=""></div>
+      <label class="check"><input type="checkbox" id="showMeta" checked> 하단에 날짜·거리·좌표 표시</label>
+    </div>
+
+    <div class="group">
+      <div class="label">기록 요약</div>
+      <div class="stats">
+        <div class="stat"><b id="sDist">–</b><small>Distance</small></div>
+        <div class="stat"><b id="sTime">–</b><small>Time</small></div>
+        <div class="stat"><b id="sPace">–</b><small>Pace</small></div>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="label">지도</div>
+      <div class="field"><label for="pad">경로 크기 <span id="padV"></span></label><input type="range" id="pad" min="10" max="95" value="25"></div>
+      <div class="field"><label for="water">강·호수 진하기 <span id="waterV"></span></label><input type="range" id="water" min="0" max="100" value="65"></div>
+      <div class="field"><label for="width">선 두께 <span id="widthV"></span></label><input type="range" id="width" min="4" max="40" value="10"></div>
+      <label class="check"><input type="checkbox" id="pins" checked> 시작·종료 마커 표시</label>
+      <label class="check"><input type="checkbox" id="labels"> 지명·도로명 표시</label>
+    </div>
+
+    <div class="group">
+      <div class="label">사이즈 · 배치</div>
+      <div class="field"><label for="psize">포스터 크기 <span id="psizeV"></span></label><select id="psize"></select></div>
+      <div class="field" id="pwField" hidden><label for="pw">포스터 가로 (cm) <span>세로는 4:5 자동</span></label><input type="number" id="pw" min="5" max="300" step="0.5" value="40" inputmode="decimal"></div>
+      <label class="check"><input type="checkbox" id="bibOn"> 배번호 함께 배치</label>
+      <div class="sub" id="bibBox" hidden>
+        <div class="pair">
+          <div class="field"><label for="bw">배번호 가로 (cm)</label><input type="number" id="bw" min="1" max="100" step="0.5" value="24" inputmode="decimal"></div>
+          <div class="field"><label for="bh">배번호 세로 (cm)</label><input type="number" id="bh" min="1" max="100" step="0.5" value="20" inputmode="decimal"></div>
+        </div>
+        <div class="field"><label id="orientL">미리보기</label>
+          <div class="seg" id="orient" role="group" aria-labelledby="orientL">
+            <button type="button" data-v="v" aria-pressed="true">세로 모드</button><button type="button" data-v="h" aria-pressed="false">가로 모드</button>
+          </div>
+        </div>
+        <div class="field"><label id="orderL">배치</label>
+          <div class="seg" id="order" role="group" aria-labelledby="orderL">
+            <button type="button" data-v="poster" aria-pressed="true">포스터 위</button><button type="button" data-v="bib" aria-pressed="false">배번호 위</button>
+          </div>
+        </div>
+        <div class="field"><label for="gap">여백·간격 (cm)</label><input type="number" id="gap" min="0" max="50" step="0.5" value="3" inputmode="decimal"></div>
+        <label class="check"><input type="checkbox" id="guides" checked> 정렬선 표시</label>
+        <div class="status" id="guideInfo"></div>
+        <div class="status" id="comboInfo"></div>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="field">
+        <label for="res">해상도</label>
+        <select id="res"></select>
+      </div>
+      <div class="row">
+        <button class="primary" id="savePng">PNG 저장</button>
+        <button class="primary" id="sharePng" hidden>사진에 저장</button>
+      </div>
+      <div class="status" id="sizeInfo"></div>
+    </div>
+  </aside>
+</div>
+
+<div id="mapbox" style="position:fixed;left:-99999px;top:0;width:1744px;height:1640px"></div>
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script>
+(() => {
+  const PW = 2000, PH = 2500, M = 128;
+  const MAP = { x: M, y: M, w: PW - M * 2, h: 1640 };
+  const SANS = '"IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif';
+  const MONO = '"IBM Plex Mono", Consolas, monospace';
+  const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const COARSE = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);
+  const RES_OPTIONS = [
+    { k: 1, label: '2000×2500 · A4까지' },
+    { k: 1.6, label: '3200×4000 · A3까지' },
+    { k: 2, label: '4000×5000 · A2까지' },
+    { k: 3, label: '6000×7500 · A1까지' },
+  ];
+  const canvas = document.getElementById('poster');
+  const previewCtx = canvas.getContext('2d');
+  let ctx = previewCtx;
+  const $ = id => document.getElementById(id);
+
+  const SAMPLE = [
+    [37.87271,127.70972,0],[37.87258,127.70937,10],[37.87244,127.70898,20],[37.87222,127.70863,30],
+    [37.87190,127.70837,40],[37.87154,127.70830,50],[37.87120,127.70823,60],[37.87084,127.70818,70],
+    [37.87049,127.70809,80],[37.87016,127.70785,90],[37.86985,127.70758,100],[37.86956,127.70733,110],
+    [37.86926,127.70706,120],[37.86914,127.70690,125],[37.86908,127.70667,130],[37.86905,127.70619,140],
+    [37.86909,127.70570,150],[37.86926,127.70525,160],[37.86941,127.70482,170],[37.86958,127.70441,180],
+    [37.86984,127.70403,190],[37.87014,127.70377,200],[37.87045,127.70349,210],[37.87074,127.70319,220],
+    [37.87102,127.70285,230],[37.87126,127.70250,240],[37.87144,127.70210,250],[37.87156,127.70166,260],
+    [37.87168,127.70119,270],[37.87181,127.70076,280],[37.87193,127.70034,290],[37.87206,127.69991,300],
+    [37.87215,127.69949,310],[37.87220,127.69906,320],[37.87217,127.69862,330],[37.87209,127.69819,340],
+    [37.87200,127.69776,350],[37.87191,127.69731,360],[37.87183,127.69691,370],[37.87177,127.69646,380],
+    [37.87172,127.69606,390],[37.87164,127.69567,400]
+  ];
+  const START = Date.parse('2026-10-25T01:00:11Z');
+  let track = { segs: [SAMPLE.map(([lat, lon, s]) => ({ lat, lon, t: START + s * 1000 }))], name: '샘플 경로' };
+  let line3Auto = true;
+  let renderId = 0;
+  let map = null, mapReady = null, labelLayers = [];
+
+  const mX = lon => (lon + 180) / 360;
+  const mY = lat => { const r = lat * Math.PI / 180; return (1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2; };
+
+  function hav(a, b) {
+    const R = 6371008.8, r = Math.PI / 180;
+    const dLat = (b.lat - a.lat) * r, dLon = (b.lon - a.lon) * r;
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLon / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(h));
+  }
+
+  function stats(t) {
+    let dist = 0, t0 = null, t1 = null;
+    for (const seg of t.segs) seg.forEach((p, i) => {
+      if (i) dist += hav(seg[i - 1], p);
+      if (p.t != null) { if (t0 == null) t0 = p.t; t1 = p.t; }
+    });
+    const sec = t0 != null ? Math.round((t1 - t0) / 1000) : null;
+    return { km: dist / 1000, sec, pace: sec && dist > 0 ? sec / (dist / 1000) : null, date: t0 };
+  }
+
+  const pad2 = n => String(n).padStart(2, '0');
+  const hms = s => `${pad2(Math.floor(s / 3600))}:${pad2(Math.floor(s % 3600 / 60))}:${pad2(s % 60)}`;
+  const ms = s => `${Math.floor(s / 60)}'${pad2(Math.round(s % 60))}"`;
+
+  function parseGpx(text) {
+    const doc = new DOMParser().parseFromString(text, 'application/xml');
+    if (doc.querySelector('parsererror')) throw new Error('XML 형식이 아닙니다. 파일이 잘렸는지 확인해 주세요.');
+    const segEls = [...doc.getElementsByTagName('trkseg')];
+    const groups = segEls.length ? segEls.map(s => [...s.getElementsByTagName('trkpt')]) : [[...doc.getElementsByTagName('rtept')]];
+    const segs = [];
+    for (const pts of groups) {
+      const seg = pts.map(p => {
+        const tEl = p.getElementsByTagName('time')[0];
+        return { lat: +p.getAttribute('lat'), lon: +p.getAttribute('lon'), t: tEl ? Date.parse(tEl.textContent) : null };
+      }).filter(p => isFinite(p.lat) && isFinite(p.lon));
+      if (seg.length > 1) segs.push(seg);
+    }
+    if (!segs.length) throw new Error('trkpt 좌표를 찾지 못했습니다.');
+    const nameEl = doc.querySelector('trk > name, metadata > name');
+    return { segs, name: nameEl ? nameEl.textContent.trim() : '불러온 GPX' };
+  }
+
+  const INK = '#111111';
+  const roadClass = classes => ['match', ['get', 'class'], classes, true, false];
+  const widths = stops => ['interpolate', ['exponential', 1.5], ['zoom'], ...stops.flat()];
+  const STYLE = {
+    version: 8,
+    glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
+    sources: { omt: { type: 'vector', url: 'https://tiles.openfreemap.org/planet' } },
+    layers: [
+      { id: 'bg', type: 'background', paint: { 'background-color': '#FFFFFF' } },
+      { id: 'water', type: 'fill', source: 'omt', 'source-layer': 'water', paint: { 'fill-color': INK } },
+      { id: 'waterway', type: 'line', source: 'omt', 'source-layer': 'waterway',
+        paint: { 'line-color': INK, 'line-width': widths([[8, 0.6], [13, 2], [18, 8]]) } },
+      { id: 'rail', type: 'line', source: 'omt', 'source-layer': 'transportation', minzoom: 10,
+        filter: roadClass(['rail', 'transit']), paint: { 'line-color': '#777777', 'line-width': widths([[10, 0.6], [16, 2]]), 'line-dasharray': [3, 2] } },
+      { id: 'path', type: 'line', source: 'omt', 'source-layer': 'transportation', minzoom: 13,
+        filter: roadClass(['path', 'track', 'service']), paint: { 'line-color': '#555555', 'line-width': widths([[13, 0.5], [16, 2], [18, 4]]) } },
+      { id: 'minor', type: 'line', source: 'omt', 'source-layer': 'transportation',
+        filter: roadClass(['minor']), layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': '#333333', 'line-width': widths([[10, 0.6], [13, 1.4], [16, 4], [18, 8]]) } },
+      { id: 'mid', type: 'line', source: 'omt', 'source-layer': 'transportation',
+        filter: roadClass(['secondary', 'tertiary']), layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': INK, 'line-width': widths([[8, 0.8], [12, 2.2], [16, 7], [18, 14]]) } },
+      { id: 'major', type: 'line', source: 'omt', 'source-layer': 'transportation',
+        filter: roadClass(['motorway', 'trunk', 'primary']), layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': INK, 'line-width': widths([[6, 1], [12, 3.2], [16, 10], [18, 20]]) } },
+      { id: 'places', type: 'symbol', source: 'omt', 'source-layer': 'place',
+        layout: { 'text-field': ['coalesce', ['get', 'name:ko'], ['get', 'name']], 'text-font': ['Noto Sans Regular'], 'text-size': 22 },
+        paint: { 'text-color': INK, 'text-halo-color': '#FFFFFF', 'text-halo-width': 3 } },
+    ],
+  };
+
+  function ensureMap(center, zoom) {
+    if (mapReady) return mapReady;
+    mapReady = new Promise((res, rej) => {
+      if (!window.maplibregl) return rej(new Error('지도 라이브러리를 불러오지 못했습니다'));
+      map = new maplibregl.Map({
+        container: 'mapbox',
+        style: STYLE,
+        center, zoom,
+        interactive: false,
+        attributionControl: false,
+        preserveDrawingBuffer: true,
+        pixelRatio: 1,
+        fadeDuration: 0,
+      });
+      map.once('load', () => {
+        labelLayers = map.getStyle().layers.filter(l => l.type === 'symbol').map(l => l.id);
+        res(map);
+      });
+      map.on('error', e => console.warn(e && e.error));
+    });
+    return mapReady;
+  }
+
+  async function snapMap(center, zoom, ratio) {
+    const m = await ensureMap(center, zoom);
+    if (m.getPixelRatio() !== ratio) m.setPixelRatio(ratio);
+    const vis = $('labels').checked ? 'visible' : 'none';
+    labelLayers.forEach(id => m.setLayoutProperty(id, 'visibility', vis));
+    const g = Math.round(240 - 223 * $('water').value / 100);
+    const water = `rgb(${g},${g},${g})`;
+    m.setPaintProperty('water', 'fill-color', water);
+    m.setPaintProperty('waterway', 'line-color', water);
+    m.jumpTo({ center, zoom });
+    await new Promise(res => {
+      const timer = setTimeout(res, 15000);
+      m.once('idle', () => { clearTimeout(timer); res(); });
+      m.triggerRepaint();
+    });
+    return m.getCanvas();
+  }
+
+  function view() {
+    const all = track.segs.flat();
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    for (const p of all) {
+      const x = mX(p.lon), y = mY(p.lat);
+      x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+    }
+    const inner = $('pad').value / 100;
+    const S = Math.min(512 * 2 ** 19, MAP.w * inner / Math.max(x1 - x0, 1e-12), MAP.h * inner / Math.max(y1 - y0, 1e-12));
+    return { S, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 };
+  }
+
+  async function render(out = canvas, k = 1) {
+    const id = ++renderId;
+    const { S, cx, cy } = view();
+    const px = X => MAP.x + MAP.w / 2 + (X - cx) * S;
+    const py = Y => MAP.y + MAP.h / 2 + (Y - cy) * S;
+
+    const zoom = Math.log2(S / 512);
+    const center = [cx * 360 - 180, Math.atan(Math.sinh(Math.PI * (1 - 2 * cy))) * 180 / Math.PI];
+    let mapCanvas = null, mapErr = '';
+    if (out === canvas) compose(out, k, px, py, null);
+    $('status').textContent = '지도 불러오는 중…';
+    try { mapCanvas = await snapMap(center, zoom, k); } catch (err) { mapErr = err.message; }
+    if (id !== renderId) return false;
+
+    compose(out, k, px, py, mapCanvas);
+    if (out !== canvas) return !mapErr;
+    $('status').textContent = `${track.name} · 포인트 ${track.segs.reduce((a, s) => a + s.length, 0).toLocaleString()}개 · 지도 줌 ${zoom.toFixed(1)}`
+      + (mapErr ? ` · 지도 실패: ${mapErr}` : '');
+    return true;
+  }
+
+  function compose(out, k, px, py, mapCanvas) {
+    ctx = out.getContext('2d');
+    ctx.setTransform(k, 0, 0, k, 0, 0);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, PW, PH);
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(MAP.x, MAP.y, MAP.w, MAP.h);
+    ctx.clip();
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(MAP.x, MAP.y, MAP.w, MAP.h);
+    if (mapCanvas) {
+      ctx.drawImage(mapCanvas, MAP.x, MAP.y, MAP.w, MAP.h);
+    }
+
+    const w = +$('width').value;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    for (const seg of track.segs) seg.forEach((p, i) => ctx[i ? 'lineTo' : 'moveTo'](px(mX(p.lon)), py(mY(p.lat))));
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = w + 6;
+    ctx.stroke();
+    ctx.strokeStyle = '#E10600';
+    ctx.lineWidth = w;
+    ctx.stroke();
+
+    if ($('pins').checked) {
+      const s = track.segs[0][0], last = track.segs.at(-1), e = last[last.length - 1];
+      const sx = px(mX(s.lon)), sy = py(mY(s.lat)), ex = px(mX(e.lon)), ey = py(mY(e.lat));
+      const H = 84 + w * 2;
+      if (Math.hypot(sx - ex, sy - ey) < H * 0.8) {
+        pin(sx, sy, H, 'S·F');
+      } else {
+        pin(ex, ey, H, 'F');
+        pin(sx, sy, H, 'S');
+      }
+    }
+
+    ctx.font = `400 22px ${MONO}`;
+    ctx.fillStyle = 'rgba(255,255,255,.85)';
+    const attr = '© OpenFreeMap © OpenMapTiles © OpenStreetMap contributors';
+    const aw = ctx.measureText(attr).width;
+    ctx.fillRect(MAP.x + MAP.w - aw - 28, MAP.y + MAP.h - 44, aw + 28, 44);
+    ctx.fillStyle = '#8A8A8A';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText(attr, MAP.x + MAP.w - 14, MAP.y + MAP.h - 14);
+    ctx.restore();
+
+    drawText();
+    ctx = previewCtx;
+  }
+
+  function pin(x, y, H, label) {
+    const R = H * 0.36, cy = y - H * 0.62, d = y - cy;
+    const phi = Math.acos(R / d);
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.arc(x, cy, R, Math.PI / 2 + phi, Math.PI / 2 - phi);
+    ctx.closePath();
+    ctx.shadowColor = 'rgba(0,0,0,.25)';
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetY = 3;
+    ctx.fillStyle = '#E10600';
+    ctx.fill();
+    ctx.shadowColor = 'transparent';
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x, cy, R * 0.62, 0, Math.PI * 2);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fill();
+    ctx.fillStyle = '#E10600';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = `700 ${Math.round(R * (label.length > 1 ? 0.5 : 0.78))}px ${SANS}`;
+    ctx.fillText(label, x, cy + R * 0.04);
+    ctx.restore();
+  }
+
+  function fitText(text, weight, size, family, maxW, spacing) {
+    ctx.font = `${weight} ${size}px ${family}`;
+    if ('letterSpacing' in ctx) ctx.letterSpacing = spacing + 'px';
+    const w = ctx.measureText(text).width;
+    if (w > maxW) {
+      size = Math.floor(size * maxW / w);
+      ctx.font = `${weight} ${size}px ${family}`;
+    }
+  }
+
+  function drawText() {
+    const st = stats(track);
+    $('sDist').textContent = st.km.toFixed(2);
+    $('sTime').textContent = st.sec != null ? hms(st.sec) : '–';
+    $('sPace').textContent = st.pace ? ms(st.pace) : '–';
+    if (line3Auto) $('t3').value = st.sec != null ? hms(st.sec) : '';
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, MAP.y + MAP.h + 1, PW, PH - MAP.y - MAP.h - 1);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    const cx = PW / 2, maxW = PW - M * 2;
+
+    fitText($('t1').value, 700, 144, SANS, maxW, -2);
+    ctx.fillStyle = '#111111';
+    ctx.fillText($('t1').value, cx, 2000);
+
+    fitText($('t2').value, 400, 60, SANS, maxW, 0);
+    ctx.fillStyle = '#333333';
+    ctx.fillText($('t2').value, cx, 2124);
+
+    fitText($('t3').value, 300, 80, MONO, maxW, 8);
+    ctx.fillStyle = '#111111';
+    ctx.fillText($('t3').value, cx, 2268);
+
+    if ($('showMeta').checked) {
+      const p = track.segs[0][0];
+      const d = st.date ? new Date(st.date + 9 * 3600e3) : null;
+      const date = d ? `${d.getUTCFullYear()}.${pad2(d.getUTCMonth() + 1)}.${pad2(d.getUTCDate())}` : '';
+      const meta = [date, `${st.km.toFixed(2)} KM`, `${p.lat.toFixed(4)}°N ${p.lon.toFixed(4)}°E`].filter(Boolean).join('   ·   ');
+      fitText(meta, 400, 28, MONO, maxW, 4);
+      ctx.fillStyle = '#8A8A8A';
+      ctx.fillText(meta, cx, 2396);
+    }
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+    if (ctx === previewCtx) drawCombo();
+  }
+
+  const POSTER_SIZES = [20, 24, 32, 40, 48, 60];
+  const combo = $('combo');
+  let orient = 'v', bibFirst = false;
+  const fmt = v => String(Math.round(v * 10) / 10);
+  const num = (id, d) => { const v = parseFloat($(id).value); return v > 0 ? v : d; };
+
+  function posterCm() {
+    const w = $('psize').value === 'custom' ? num('pw', 40) : +$('psize').value;
+    return { w, h: w * PH / PW };
+  }
+
+  function sizeInfo() {
+    const p = posterCm();
+    const dpi = PW * +$('res').value / (p.w / 2.54);
+    $('psizeV').textContent = `${fmt(p.w)} × ${fmt(p.h)} cm`;
+    $('sizeInfo').textContent = `${fmt(p.w)} × ${fmt(p.h)} cm로 인쇄하면 약 ${Math.round(dpi)}dpi입니다. 150dpi 이상이면 선명하고, 300dpi 근처면 아주 선명합니다.`
+      + (dpi < 150 ? ' 지금은 흐릿할 수 있으니 해상도를 올려 주세요.' : '');
+  }
+
+  function drawBib(c, x, y, w, h, b) {
+    const u = Math.min(w, h);
+    c.save();
+    c.fillStyle = '#FFFFFF';
+    c.fillRect(x, y, w, h);
+    const band = Math.min(h * 0.22, w * 0.19);
+    c.fillStyle = '#E10600';
+    c.fillRect(x, y, w, band);
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    const fit = (text, weight, size, family, maxW) => {
+      c.font = `${weight} ${size}px ${family}`;
+      const tw = c.measureText(text).width;
+      if (tw > maxW) c.font = `${weight} ${size * maxW / tw}px ${family}`;
+    };
+    const title = $('t1').value || 'RUN';
+    fit(title, 700, band * 0.46, SANS, w * 0.84);
+    c.fillStyle = '#FFFFFF';
+    c.fillText(title, x + w / 2, y + band * 0.52);
+    fit('1025', 700, Math.min(h * 0.44, w * 0.4), SANS, w * 0.82);
+    c.fillStyle = '#111111';
+    c.fillText('1025', x + w / 2, y + band + (h - band) * 0.48);
+    const sample = `SAMPLE · ${fmt(b.w)} × ${fmt(b.h)} cm`;
+    fit(sample, 400, Math.min(h * 0.055, w * 0.05), MONO, w * 0.78);
+    c.fillStyle = '#8A8A8A';
+    c.fillText(sample, x + w / 2, y + h - Math.min(h * 0.11, w * 0.1));
+    c.strokeStyle = '#C8C8C8';
+    c.lineWidth = Math.max(1, u * 0.006);
+    const r = u * 0.022, ix = w * 0.06, top = y + band + u * 0.08, bot = y + h - u * 0.08;
+    [[x + ix, top], [x + w - ix, top], [x + ix, bot], [x + w - ix, bot]].forEach(([cx, cy]) => {
+      c.beginPath(); c.arc(cx, cy, r, 0, Math.PI * 2); c.stroke();
+    });
+    c.restore();
+  }
+
+  function drawGuides(c, rects, vert, tol) {
+    const lw = Math.max(2, combo.width / 700);
+    const COLOR = { poster: '#E10600', bib: '#2563EB' };
+    const edges = r => vert ? [r.x, r.x + r.w] : [r.y, r.y + r.h];
+    const line = (v, color, dash) => {
+      c.strokeStyle = color;
+      c.setLineDash(dash);
+      c.beginPath();
+      if (vert) { c.moveTo(v, 0); c.lineTo(v, combo.height); }
+      else { c.moveTo(0, v); c.lineTo(combo.width, v); }
+      c.stroke();
+    };
+    const [a, b] = rects, ea = edges(a), eb = edges(b);
+    c.save();
+    c.lineWidth = lw;
+    [0, 1].forEach(i => {
+      if (Math.abs(ea[i] - eb[i]) < tol) line(ea[i], '#16A34A', [lw * 6, lw * 3]);
+      else { line(ea[i], COLOR[a.it], [lw * 4, lw * 4]); line(eb[i], COLOR[b.it], [lw * 4, lw * 4]); }
+    });
+    c.restore();
+  }
+
+  function drawCombo() {
+    sizeInfo();
+    const on = $('bibOn').checked;
+    combo.hidden = !on;
+    canvas.hidden = on;
+    if (!on) return;
+    const p = posterCm(), b = { w: num('bw', 24), h: num('bh', 20) };
+    const g = Math.max(0, parseFloat($('gap').value) || 0);
+    const vert = orient === 'v';
+    const W = vert ? Math.max(p.w, b.w) + g * 2 : p.w + b.w + g * 3;
+    const H = vert ? p.h + b.h + g * 3 : Math.max(p.h, b.h) + g * 2;
+    const s = 2000 / Math.max(W, H);
+    combo.width = Math.round(W * s);
+    combo.height = Math.round(H * s);
+    combo.style.maxWidth = `min(${vert ? 640 : 900}px, calc((100vh - 48px) * ${(W / H).toFixed(4)}))`;
+    const c = combo.getContext('2d');
+    c.fillStyle = '#F2F0EC';
+    c.fillRect(0, 0, combo.width, combo.height);
+    let off = g;
+    const rects = [];
+    for (const it of bibFirst ? ['bib', 'poster'] : ['poster', 'bib']) {
+      const r = it === 'poster' ? p : b;
+      const x = (vert ? (W - r.w) / 2 : off) * s;
+      const y = (vert ? off : (H - r.h) / 2) * s;
+      off += (vert ? r.h : r.w) + g;
+      rects.push({ it, x, y, w: r.w * s, h: r.h * s });
+      c.save();
+      c.shadowColor = 'rgba(0,0,0,.18)';
+      c.shadowBlur = 16;
+      c.shadowOffsetY = 4;
+      c.fillStyle = '#FFFFFF';
+      c.fillRect(x, y, r.w * s, r.h * s);
+      c.restore();
+      if (it === 'poster') c.drawImage(canvas, x, y, r.w * s, r.h * s);
+      else drawBib(c, x, y, r.w * s, r.h * s, b);
+    }
+    const guides = $('guides').checked;
+    if (guides) drawGuides(c, rects, vert, s * 0.05);
+    const d = vert ? Math.abs(p.w - b.w) / 2 : Math.abs(p.h - b.h) / 2;
+    const side = vert ? '좌우' : '위아래';
+    $('guideInfo').hidden = !guides;
+    $('guideInfo').textContent = (d < 0.05 ? `${side} 끝선 일치` : `${side} 끝선이 한쪽당 ${fmt(d)} cm 어긋남`)
+      + ' · 초록 일치 · 빨강 포스터 · 파랑 배번호';
+    $('comboInfo').textContent = `전체 ${fmt(W)} × ${fmt(H)} cm · 배번호는 샘플이며 PNG 저장은 포스터만 됩니다`;
+  }
+
+  function buildSizeOptions() {
+    POSTER_SIZES.forEach(w => {
+      const opt = document.createElement('option');
+      opt.value = w;
+      opt.textContent = `${w} × ${fmt(w * PH / PW)} cm`;
+      opt.selected = w === 40;
+      $('psize').appendChild(opt);
+    });
+    const opt = document.createElement('option');
+    opt.value = 'custom';
+    opt.textContent = '직접 입력';
+    $('psize').appendChild(opt);
+  }
+
+  function setSeg(id, v) {
+    $(id).querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === v)));
+  }
+
+  function syncOrder() {
+    const [a, b] = $('order').querySelectorAll('button');
+    const side = orient === 'v' ? '위' : '왼쪽';
+    a.textContent = `포스터 ${side}`;
+    b.textContent = `배번호 ${side}`;
+  }
+
+  function loadText(text) {
+    try { track = parseGpx(text); line3Auto = true; render(); }
+    catch (err) { $('status').textContent = '불러오지 못했습니다: ' + err.message; }
+  }
+
+  function maxScale() {
+    let lim = 16384;
+    try {
+      const gl = document.createElement('canvas').getContext('webgl');
+      if (gl) lim = Math.min(gl.getParameter(gl.MAX_RENDERBUFFER_SIZE), gl.getParameter(gl.MAX_VIEWPORT_DIMS)[0]);
+    } catch (e) {}
+    let k = lim / MAP.w;
+    if (IS_IOS || COARSE) k = Math.min(k, Math.sqrt(16777216 / (PW * PH)));
+    return k;
+  }
+
+  function buildResOptions() {
+    const kMax = maxScale();
+    const allowed = RES_OPTIONS.filter(o => o.k <= kMax + 1e-9);
+    const list = allowed.length ? allowed : [RES_OPTIONS[0]];
+    const def = [...list].reverse().find(o => o.k <= 2) || list[0];
+    $('res').innerHTML = '';
+    list.forEach(o => {
+      const opt = document.createElement('option');
+      opt.value = o.k;
+      opt.textContent = o.label;
+      opt.selected = o === def;
+      $('res').appendChild(opt);
+    });
+  }
+
+  let renderTimer = null;
+  const renderSoon = () => { clearTimeout(renderTimer); renderTimer = setTimeout(render, COARSE ? 220 : 80); };
+
+  const sync = () => { $('padV').textContent = $('pad').value + '%'; $('widthV').textContent = $('width').value; $('waterV').textContent = $('water').value + '%'; };
+  ['t1', 't2'].forEach(id => $(id).addEventListener('input', drawText));
+  $('t3').addEventListener('input', () => { line3Auto = false; drawText(); });
+  $('showMeta').addEventListener('change', drawText);
+  ['pad', 'width', 'water'].forEach(id => $(id).addEventListener('input', () => { sync(); renderSoon(); }));
+  $('labels').addEventListener('change', render);
+  $('pins').addEventListener('change', render);
+  $('psize').addEventListener('change', () => { $('pwField').hidden = $('psize').value !== 'custom'; drawCombo(); });
+  ['pw', 'bw', 'bh', 'gap'].forEach(id => $(id).addEventListener('input', drawCombo));
+  $('guides').addEventListener('change', drawCombo);
+  $('res').addEventListener('change', sizeInfo);
+  $('bibOn').addEventListener('change', () => { $('bibBox').hidden = !$('bibOn').checked; drawCombo(); });
+  $('orient').addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    orient = b.dataset.v;
+    setSeg('orient', orient);
+    syncOrder();
+    drawCombo();
+  });
+  $('order').addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    bibFirst = b.dataset.v === 'bib';
+    setSeg('order', b.dataset.v);
+    drawCombo();
+  });
+
+  const drop = $('drop'), file = $('file');
+  if (IS_IOS) file.removeAttribute('accept');
+  const readFile = f => {
+    if (!f) return;
+    $('status').textContent = `${f.name} 읽는 중…`;
+    const r = new FileReader();
+    r.onload = () => loadText(String(r.result));
+    r.onerror = () => { $('status').textContent = '파일을 읽지 못했습니다. 다시 선택해 주세요.'; };
+    r.readAsText(f);
+  };
+  drop.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); file.click(); } });
+  file.addEventListener('change', () => { readFile(file.files[0]); file.value = ''; });
+  drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+  drop.addEventListener('drop', e => { e.preventDefault(); drop.classList.remove('over'); readFile(e.dataTransfer.files[0]); });
+  window.addEventListener('dragover', e => e.preventDefault());
+  window.addEventListener('drop', e => { e.preventDefault(); readFile(e.dataTransfer.files[0]); });
+
+  let readyFile = null;
+
+  async function deliver(f) {
+    if (COARSE && navigator.canShare && navigator.canShare({ files: [f] })) {
+      try { await navigator.share({ files: [f] }); return 'shared'; }
+      catch (err) {
+        if (err.name === 'AbortError') return 'cancel';
+        if (err.name === 'NotAllowedError') return 'needtap';
+      }
+    }
+    const url = URL.createObjectURL(f);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = f.name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    return 'downloaded';
+  }
+
+  const DELIVER_MSG = { shared: '공유 창으로 보냈습니다', downloaded: '저장했습니다', cancel: '저장을 취소했습니다' };
+
+  $('sharePng').addEventListener('click', async () => {
+    if (!readyFile) return;
+    const r = await deliver(readyFile);
+    if (r === 'needtap') { $('status').textContent = '공유 창을 열지 못했습니다. 한 번 더 눌러 주세요.'; return; }
+    $('sharePng').hidden = true;
+    $('status').textContent = DELIVER_MSG[r] || '';
+    readyFile = null;
+  });
+
+  $('savePng').addEventListener('click', async () => {
+    const k = +$('res').value;
+    const btn = $('savePng');
+    btn.disabled = true;
+    $('sharePng').hidden = true;
+    readyFile = null;
+    $('status').textContent = `${PW * k}×${PH * k} 이미지 만드는 중…`;
+    try {
+      const out = document.createElement('canvas');
+      out.width = PW * k;
+      out.height = PH * k;
+      const ok = await render(out, k);
+      if (ok === false) throw new Error('지도를 다 불러오지 못했습니다. 다시 눌러 주세요.');
+      const blob = await new Promise((res, rej) => out.toBlob(b => b ? res(b) : rej(new Error('이미지가 너무 큽니다. 해상도를 낮춰 주세요.')), 'image/png'));
+      out.width = out.height = 1;
+      const name = ($('t1').value.trim() || 'run-poster').replace(/[\\/:*?"<>|]/g, '_') + `_${PW * k}x${PH * k}.png`;
+      const f = new File([blob], name, { type: 'image/png' });
+      const r = await deliver(f);
+      await render();
+      const size = `${PW * k}×${PH * k}px (${(blob.size / 1048576).toFixed(1)}MB)`;
+      if (r === 'needtap') {
+        readyFile = f;
+        $('sharePng').hidden = false;
+        $('status').textContent = `이미지가 준비됐습니다 · ${size} · [사진에 저장]을 눌러 주세요`;
+      } else {
+        $('status').textContent = `${DELIVER_MSG[r]} · ${size}`;
+      }
+    } catch (err) {
+      await render();
+      $('status').textContent = 'PNG 저장 실패: ' + err.message;
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  buildResOptions();
+  buildSizeOptions();
+  sync();
+  render();
+  if (document.fonts) Promise.all([
+    document.fonts.load(`700 144px "IBM Plex Sans KR"`, '가A'),
+    document.fonts.load(`400 60px "IBM Plex Sans KR"`, '가A'),
+    document.fonts.load(`300 80px "IBM Plex Mono"`, '0'),
+  ]).then(drawText, drawText);
+})();
+</script>
+</body>
+</html>
